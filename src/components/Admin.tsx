@@ -30,13 +30,13 @@ export default function Admin() {
         email,
         password: Math.random().toString(36).slice(-12) + 'Aa1!',
         options: {
-          emailRedirectTo: \`\${window.location.origin}/welcome\`,
+          emailRedirectTo: `${window.location.origin}/welcome`,
         },
       });
 
       if (error) throw error;
 
-      setMessage(\`Account created! Magic link sent to \${email}\`);
+      setMessage(`Account created! Magic link sent to ${email}`);
       setEmail('');
     } catch (error: any) {
       console.error('Error:', error);
@@ -109,7 +109,7 @@ export default function Admin() {
           </button>
 
           {message && (
-            <p className={\`text-center \${message.includes('sent') ? 'text-green-600' : 'text-red-600'}\`}>
+            <p className={`text-center ${message.includes('sent') ? 'text-green-600' : 'text-red-600'}`}>
               {message}
             </p>
           )}
