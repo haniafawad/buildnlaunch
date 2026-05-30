@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
 
 export default function Admin() {
   const [email, setEmail] = useState('');
@@ -9,9 +8,10 @@ export default function Admin() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
 
-  const checkAdmin = async () => {
+  const checkAdmin = () => {
     if (adminPassword === 'launchroom2024') {
       setIsAdmin(true);
+      setMessage('');
     } else {
       setMessage('Wrong password');
       setMessageType('error');
@@ -25,63 +25,37 @@ export default function Admin() {
     setMessage('');
 
     try {
-      // Generate a random password that meets requirements
-      const password = 'Launch' + Math.random().toString(36).slice(-8) + '!';
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            from_admin: true
-          }
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          adminPassword,
+        }),
       });
 
-      if (error) {
-        console.error('Supabase signUp error:', error);
-        
-        if (error.message.includes('already registered')) {
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error?.includes('already registered')) {
           setMessage('This email already has an account. They can login directly.');
-          setMessageType('error');
-        } else if (error.message.includes('unable to get email')) {
-          setMessage('Invalid email address — please check and try again.');
-          setMessageType('error');
-        } else if (error.message.includes('signup disabled')) {
-          setMessage('Signups are currently disabled. Check Supabase Auth settings.');
-          setMessageType('error');
         } else {
-          setMessage(`Error: ${error.message}`);
-          setMessageType('error');
+          setMessage(data.error || 'Failed to create account');
         }
+        setMessageType('error');
         return;
       }
 
-      if (data.user) {
-        // Check if email confirmation is required
-        if (data.user.identities && data.user.identities.length === 0) {
-          setMessage('This email already has an account. They can login directly.');
-          setMessageType('error');
-        } else if (!data.session) {
-          setMessage(`Account created! A confirmation email has been sent to ${email}. The buyer must click the link to activate their account.`);
-          setMessageType('success');
-          setEmail('');
-        } else {
-          setMessage(`Account created and logged in! The buyer can now access the system with ${email}`);
-          setMessageType('success');
-          setEmail('');
-          
-          // Sign out the admin we just created (we don't want to stay logged in as them)
-          await supabase.auth.signOut();
-        }
-      } else {
-        setMessage('Account creation failed — no user returned. Please try again.');
-        setMessageType('error');
-      }
+      setMessage(data.message || `Account created for ${email}`);
+      setMessageType('success');
+      setEmail('');
     } catch (error: any) {
-      console.error('Unexpected error:', error);
-      setMessage(`Something went wrong: ${error.message || 'Unknown error'}`);
+      console.error('Error:', error);
+      setMessage(`Failed to connect to server. Please try again.`);
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -135,6 +109,7 @@ export default function Admin() {
               placeholder="buyer@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateAccount()}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] text-base"
             />
           </div>
@@ -160,17 +135,12 @@ export default function Admin() {
               This will:
             </p>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Create a new account in Supabase Auth</li>
-              <li>• Send a confirmation email (if enabled in Supabase)</li>
-              <li>• Create user profile and progress records automatically</li>
+              <li>Create a new buyer account</li>
+              <li>Auto-confirm their email</li>
+              <li>Create their user profile automatically</li>
+              <li>Allow them to login immediately</li>
             </ul>
           </div>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center">
-            Need to disable email confirmation? Go to Supabase Dashboard → Authentication → Providers → Email → Disable "Confirm email"
-          </p>
         </div>
       </div>
     </div>
